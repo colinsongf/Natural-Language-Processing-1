@@ -6,7 +6,7 @@ from nltk.chunk import RegexpParser
 from sentiwordnet import SentiWordNetCorpusReader, SentiSynset
 import re, string
 
-####################### CONSTANTS #############################################
+#constants used for passing values in evaluation
 NP = 0
 VP = 1
 NN = 2
@@ -16,12 +16,13 @@ ADJ = 5
 PRD = 6
 CLS = 7
 
-####################### FUNCTIONS #############################################
-
-def addNounPhrase(tree):          #returns tuple with <[ADJ] [NN]>
+#gets a tree of NP and returns is as a tuple with <[ADJ] [NN]>
+# Sample tree : Tree('NP', [('It', 'PRP')])
+def addNounPhrase(tree):
     adj = []
     nn = []
-       
+
+       #iterates over the tree and add the words to respective arrays
     for t in tree:
         try:
             if t[1] == "JJ":
@@ -36,11 +37,14 @@ def addNounPhrase(tree):          #returns tuple with <[ADJ] [NN]>
             continue
 
     return (adj , nn)
-	    
+
+#gets a tree of NP and returns is as a tuple with <[ADV] [VB]>
+# Sample tree : Tree('V', [('was', 'VBD')])
 def addVerbPhrase(tree):
     adv = []
     vb = []
-    
+
+       #iterates over the tree and add the words to respective arrays   
     for t in tree:
         try:
             if t[1] == "RB" or t[1] == "RBR" or t[1] == "RBS":
@@ -49,6 +53,7 @@ def addVerbPhrase(tree):
             if t.node == "V":
                 vb.append(t[0][0])
     return (adv , vb)
+
 
 def addPredicate(tree):
     tmp = (addNounPhrase(tree[0]), addVerbPhrase(tree[1]))
@@ -62,19 +67,18 @@ def addClause2(tree):
     tmp = (addNounPhrase(tree[1]), addPredicate(tree[0]))
     return tmp
 
-################################################################################
-##### Evaluation of values #####################################################
-
+#find the score to be given to each word
 def findScoreWord(word, dType):
+      #using the sentiwordnet file to get the score for each word
     swn_filename = 'SentiWordNet_3.0.0_20130122.txt'
     swn = SentiWordNetCorpusReader(swn_filename)
-    word = re.sub('[%s]' % re.escape(string.punctuation), ' ', word)
+    word = re.sub('[%s]' % re.escape(string.punctuation), ' ', word) #removes all the punctuations and replace with a space
     word = word.lower()
     wS = 0
     
     for w in word.split():
         if dType == NN:
-            test = swn.senti_synsets(w, 'n')
+            test = swn.senti_synsets(w, 'n') #gets the synsets of each word
         elif dType == ADJ:
             test = swn.senti_synsets(w, 'a')
         elif dType == VB:
@@ -82,55 +86,14 @@ def findScoreWord(word, dType):
         elif dType == ADV:
             test = swn.senti_synsets(w, 'r')
         try:
-            wS += test[0].obj_score
+            wS += test[0].pos_score - test[0].neg_score #gets the summation of all scores
         except:
             continue
 	
     if len(word.split()) == 0:
         return 0
-    return wS/len(word.split())
+    return wS/len(word.split()) #returns average score for in a sentence
 
-def evalScore(one , two, three):
-    t = 0
-    if three == NP:
-        if one >= 0 and two >= 0:
-            t = +(abs(two) + (1-abs(two)) * abs(one))
-        elif one >= 0 and two < 0:
-            t = -(abs(two) + (1-abs(two)) * abs(one))
-        elif one < 0 and two >= 0:
-            t = one
-        elif one < 0 and two < 0:
-            t = -(abs(two) + (1-abs(two)) * abs(one))
-    
-    elif three == VP:
-        if one >= 0 and two >= 0:
-            t = +(abs(one) * (1-abs(two)))
-        elif one >= 0 and two < 0:
-            t = -(abs(one) * (1-abs(two)))
-        elif one < 0 and two >= 0:
-            t = -(abs(one) * (1-abs(two)))
-        elif one < 0 and two < 0:
-            t = +(abs(one) * (1-abs(two)))
-	    
-    elif three == PRD:
-        if one >= 0 and two >= 0:
-            t = +(abs(two) * (1-abs(one)))
-        elif one < 0 and two >= 0:
-            t = -(abs(two) * (1-abs(one)))
-        elif one >= 0 and two < 0:
-            t = -(abs(two) * (1-abs(one)))
-        elif one < 0 and two < 0:
-            t = +(abs(two) * (1-abs(one)))
-    
-    elif three == CLS:
-        if abs(one) > abs(two):
-            t = one;
-        else:
-            t = two
-	    
-    return t
-
-################################################################################
 
 
 def findScoreSO(tmpNP):		#tmpNP = [(<[ADJ] [NN]>) , ...]
@@ -150,8 +113,8 @@ def findScoreSO(tmpNP):		#tmpNP = [(<[ADJ] [NN]>) , ...]
             scoreNn +=  findScoreWord(t1, NN)
 	
         if len(temp[0]) != 0 and len(temp[1]) != 0:
-            totalScore += evalScore((scoreAdj/len(temp[0])), 
-(scoreNn/len(temp[1])), NP)
+            totalScore += (scoreAdj/len(temp[0]) + scoreNn/len(temp[1]))/2
+            
         elif len(temp[0]) == 0 and len(temp[1]) != 0:
             totalScore += (scoreNn/len(temp[1]))
 	
@@ -181,8 +144,7 @@ def findScoreVP(tmpVP):
             scoreVb +=  findScoreWord(t1, VB)
 	
         if len(temp[0]) != 0 and len(temp[1]) != 0:
-            totalScore += evalScore((scoreAdv/len(temp[0])), 
-(scoreVb/len(temp[1])), VP)
+            totalScore += (scoreAdv/len(temp[0]) + scoreVb/len(temp[1]))/2
 	
         elif len(temp[0]) == 0 and len(temp[1]) != 0:
             totalScore += (scoreVb/len(temp[1]))
@@ -204,7 +166,7 @@ def findScorePredicate(tmpPrd):
     for temp in tmpPrd:
         tmpNP.append(temp[0])
         tmpVP.append(temp[1])
-        totalScore += evalScore(findScoreSO(tmpNP), findScoreVP(tmpVP), PRD)
+        totalScore += (findScoreSO(tmpNP) + findScoreVP(tmpVP))/2
     if len(tmpPrd) != 0:
         return totalScore/len(tmpPrd)
     else:
@@ -217,21 +179,17 @@ def findScoreClause(tmpCls):
     for temp in tmpCls:
         tmpNP.append(temp[0])
         tmpPrd.append(temp[1])
-        totalScore +=evalScore(findScoreSO(tmpNP),findScorePredicate(tmpPrd) , 
-CLS)
+        totalScore += (findScoreSO(tmpNP) + findScoreVP(tmpPrd))/2
     if len(tmpCls) != 0:
         return totalScore/len(tmpPrd)
     else:
         return 0
     
 
-################################################################################
-################################################################################
-
 review = " "
 punctuation = [",",";",".",":",","]
 
-
+#grammar for parsing the input
 grammer = '''
     NP: {<DT>? <JJ>* <NN.*|PR.*>*}
     P: {<IN>}          
@@ -243,6 +201,7 @@ prd = "PRD: {<NP> <VP>}\n"
 cls1 = "CLS1: {<NP> <PRD>}\n"
 cls2 = "CLS2: {<PRD> <NP>}\n"
 
+#open the file named 'input' and read it
 print "Loading input file..."
 fileReview = open("input", "r")	#open 
 #file to retrive movie 
@@ -266,17 +225,10 @@ for sent in review_dict:	#adding individual sentences after tagging
     arr_pos.extend([pos_tag(sent.split())].__iter__())
     
 
-################################################################################
-################################################################################
-
 
 print "Loading Parser..."
-#t = npc.parse(tmp_arr_pos[0])
 print "Finished loading..."
 
-#print len(t)
-#t.draw()
-#help(t)
 sentCount = 1
 sentScore = []          #tuple with (Subj-Obj , Verb-P , )
 totalS = []
@@ -284,17 +236,17 @@ totalS = []
 print "Processing input..."
 print "Number of sentences to process: ", len(arr_pos)
 
-for q in ["", vp, prd, cls1, cls2]:
-   print "----\n\n"
+for q in ["", vp + prd + cls1 + cls2]:
+   print "----\n"
    print q
-   grammer += q
-   npc = RegexpParser(grammer)
+   grammer += q  #update grammer
+   npc = RegexpParser(grammer) #assign npc with RegexpParser for the given grammar
    sentCount=0
    print "\n"
    for i in arr_pos:
         print "Reading sentence ", sentCount
         sentCount += 1
-        t = npc.parse(i)
+        t = npc.parse(i) #parsing
         print t
         tmpVP = []
         tmpNP = []
@@ -305,7 +257,7 @@ for q in ["", vp, prd, cls1, cls2]:
         for x in t:
             try:
                 if x.node == "VP":
-                    x1 = addVerbPhrase(x)
+                    x1 = addVerbPhrase(x) #gets the tuple [ADJ NN]
                     tmpVP.append(x1)
 	       
                 if x.node == "NP":
@@ -326,15 +278,15 @@ for q in ["", vp, prd, cls1, cls2]:
             except:
                 continue
     
-        totalS.append(1)
+        totalS.append(1) #set 1 as the initial value in the stack
    
-        tNp = findScoreSO(tmpNP)
+        tNp = findScoreSO(tmpNP) #finding score of each word
         tVp = findScoreVP(tmpVP)
         tPrd = findScorePredicate(tmpPrd)
         tCls = findScoreClause(tmpCls)
 
         if tNp != 0:
-            totalS.append(totalS.pop() * tNp)
+            totalS.append(totalS.pop() * tNp) #multiply the new element with the old element in the list
    
         if tVp != 0:
             totalS.append(totalS.pop() * tVp)
@@ -344,7 +296,9 @@ for q in ["", vp, prd, cls1, cls2]:
    
         if tCls != 0:
             totalS.append(totalS.pop() * tCls)
-   
-   
-for i in totalS:
-    print i
+
+print "\nSCORES\n____________"
+for j in range(0,len(totalS),sentCount):
+   for i in range(0,sentCount):
+      print totalS[j+i]
+   print "_____________"
