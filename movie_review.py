@@ -16,57 +16,6 @@ ADJ = 5
 PRD = 6
 CLS = 7
 
-#gets a tree of NP and returns is as a tuple with <[ADJ] [NN]>
-# Sample tree : Tree('NP', [('It', 'PRP')])
-def getNP(tree):
-    adj = []
-    nn = []
-
-       #iterates over the tree and add the words to respective arrays
-    for t in tree:
-        try:
-            if t[1] == "JJ" or t[1]=="JJR" or t[1]=="JJS":
-                adj.append(t[0])
-            elif t[1] == "NN" or t[1] == "NNP":
-                nn.append(t[0])
-            elif t[1] == "NNS" or t[1]=="NNPS":
-                nn.append(t[0])
-            elif t[1]=="PRP" or t[1] == "PRPS":
-                nn.append(t[0])
-        except:
-            continue
-
-    return (adj , nn)
-
-#gets a tree of NP and returns is as a tuple with <[ADV] [VB]>
-# Sample tree : Tree('V', [('was', 'VBD')])
-def getVP(tree):
-    adv = []
-    vb = []
-
-       #iterates over the tree and add the words to respective arrays   
-    for t in tree:
-        try:
-            if t[1] == "RB":
-                adv.append(t[0])
-        except:
-            if t.node == "V":
-                vb.append(t[0][0])
-    return (adv , vb)
-
-
-def getPred(tree):
-    tmp = (getNP(tree[0]), getVP(tree[1]))
-    return tmp
-
-def getClause1(tree):
-    tmp = (getNP(tree[0]), getPred(tree[1]))
-    return tmp
-
-def getClause2(tree):
-    tmp = (getNP(tree[1]), getPred(tree[0]))
-    return tmp
-
 #find the score to be given to each word
 def getWordScore(word, dType):
       #using the sentiwordnet file to get the score for each word
@@ -197,7 +146,57 @@ def getScoreClause(tmpCls):
         return totalScore/len(tmpPrd)
     else:
         return 0
-    
+
+#gets a tree of NP and returns is as a tuple with <[ADJ] [NN]>
+# Sample tree : Tree('NP', [('It', 'PRP')])
+def getNP(tree):
+    adj = []
+    nn = []
+
+       #iterates over the tree and add the words to respective arrays
+    for t in tree:
+        try:
+            if t[1] == "JJ" or t[1]=="JJR" or t[1]=="JJS":
+                adj.append(t[0])
+            elif t[1] == "NN" or t[1] == "NNP":
+                nn.append(t[0])
+            elif t[1] == "NNS" or t[1]=="NNPS":
+                nn.append(t[0])
+            elif t[1]=="PRP" or t[1] == "PRPS":
+                nn.append(t[0])
+        except:
+            continue
+
+    return (adj , nn)
+
+#gets a tree of NP and returns is as a tuple with <[ADV] [VB]>
+# Sample tree : Tree('V', [('was', 'VBD')])
+def getVP(tree):
+    adv = []
+    vb = []
+
+       #iterates over the tree and add the words to respective arrays   
+    for t in tree:
+        try:
+            if t[1] == "RB":
+                adv.append(t[0])
+        except:
+            if t.node == "V":
+                vb.append(t[0][0])
+    return (adv , vb)
+
+
+def getPred(tree):
+    tmp = (getNP(tree[0]), getVP(tree[1]))
+    return tmp
+
+def getClause1(tree):
+    tmp = (getNP(tree[0]), getPred(tree[1]))
+    return tmp
+
+def getClause2(tree):
+    tmp = (getNP(tree[1]), getPred(tree[0]))
+    return tmp
 
 review = " "
 punctuation = [",",";",".",":",","]
@@ -292,6 +291,7 @@ for q in ["", vp + prd + cls1 + cls2]:
                 continue
     
         totalS.append(1) #set 1 as the initial value in the stack
+        flag = 0 #flag for negative scores, if there are two negative scores net score have to be negative itself
    
         tNp = getScoreNP(tmpNP) #finding score of each word
         tVp = getScoreVP(tmpVP)
@@ -300,23 +300,27 @@ for q in ["", vp + prd + cls1 + cls2]:
 	#multiply the old element in the list with the new element
         if tNp != 0:
             totalS.append(totalS.pop() * abs(tNp))
-            if tNp < 0:
+            if tNp < 0 and flag==0:
                 totalS.append(0-totalS.pop())
+                flag=1
    
         if tVp != 0:
             totalS.append(totalS.pop() * abs(tVp))
-            if tVp < 0:
+            if tVp < 0 and flag==0:
                 totalS.append(0-totalS.pop())
+                flag=1
    
         if tPrd != 0:
             totalS.append(totalS.pop() * abs(tPrd))
-            if tPrd < 0:
+            if tPrd < 0 and flag==0:
                 totalS.append(0-totalS.pop())
+                flag=1
    
         if tCls != 0:
             totalS.append(totalS.pop() * abs(tCls))
-            if tCls < 0:
+            if tCls < 0 and flag==0:
                 totalS.append(0-totalS.pop())
+                flag=1
 
 netscore = 0;
 
