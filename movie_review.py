@@ -291,7 +291,7 @@ for q in ["", vp + prd + cls1 + cls2]:
             except:
                 continue
     
-        totalS.append(1) #set 1 as the initial value in the stack
+        totalS.append(0) #set 1 as the initial value in the stack
    
         tNp = getScoreNP(tmpNP) #finding score of each word
         tVp = getScoreVP(tmpVP)
@@ -299,16 +299,16 @@ for q in ["", vp + prd + cls1 + cls2]:
         tCls = getScoreClause(tmpCls)
 	#multiply the old element in the list with the new element
         if tNp != 0:
-            totalS.append(totalS.pop() * tNp) 
+            totalS.append((totalS.pop() + tNp)/2) 
    
         if tVp != 0:
-            totalS.append(totalS.pop() * tVp)
+            totalS.append((totalS.pop() + tVp)/2)
    
         if tPrd != 0:
-            totalS.append(totalS.pop() * tPrd)
+            totalS.append((totalS.pop() + tPrd)/2)
    
         if tCls != 0:
-            totalS.append(totalS.pop() * tCls)
+            totalS.append((totalS.pop() + tCls)/2)
 
 netscore = 0;
 
