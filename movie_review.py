@@ -6,7 +6,7 @@ from nltk.chunk import RegexpParser
 from sentiwordnet import SentiWordNetCorpusReader, SentiSynset
 import re, string
 
-#constants used in function parameters
+#constants used for passing values in evaluation
 NP = 0
 VP = 1
 NN = 2
@@ -25,7 +25,7 @@ def getNP(tree):
        #iterates over the tree and add the words to respective arrays
     for t in tree:
         try:
-            if t[1] == "JJ":
+            if t[1] == "JJ" or t[1]=="JJR" or t[1]=="JJS":
                 adj.append(t[0])
             elif t[1] == "NN" or t[1] == "NNP":
                 nn.append(t[0])
@@ -47,7 +47,7 @@ def getVP(tree):
        #iterates over the tree and add the words to respective arrays   
     for t in tree:
         try:
-            if t[1] == "RB" or t[1] == "RBR" or t[1] == "RBS":
+            if t[1] == "RB":
                 adv.append(t[0])
         except:
             if t.node == "V":
@@ -87,21 +87,26 @@ def getWordScore(word, dType):
         elif dType == ADV:
             test = swn.senti_synsets(w, 'r')
         try:
-            wS += test[0].pos_score - test[0].neg_score #gets the summation of all scores
+            p_score = test[0].pos_score
+            n_score = test[0].neg_score
+            wS += p_score - n_score #gets the summation of all scores
+            
         except:
             continue
         print w,"\n Positive Score : ",test[0].pos_score,"\n Negative Score : ",test[0].neg_score
 
     if len(word.split()) == 0:
         return 0
-    return wS/len(word.split()) #returns average score for in a sentence
+    else:
+        return wS/len(word.split()) #returns average score for in a sentence
 
 
 
 def getScoreNP(tmpNP):		#tmpNP = [(<[ADJ] [NN]>) , ...]
     scoreAdj = 0
     scoreNn = 0
-    totalScore = 0	
+    totalScore = 0
+    normcount = 0
 
     for temp in tmpNP:
 
@@ -109,10 +114,16 @@ def getScoreNP(tmpNP):		#tmpNP = [(<[ADJ] [NN]>) , ...]
         scoreNn = 0
 
         for t1 in temp[0]:
-            scoreAdj +=  getWordScore(t1, ADJ)
+            wordscore = getWordScore(t1, ADJ)
+            if wordscore==0:
+                normcount+=1
+            scoreAdj +=  wordscore
 
         for t1 in temp[1]:
-            scoreNn +=  getWordScore(t1, NN)
+            wordscore = getWordScore(t1, NN)
+            if wordscore==0:
+                normcount+=1
+            scoreNn +=  wordscore
 
         if len(temp[0]) != 0 and len(temp[1]) != 0:
             totalScore += (scoreAdj/len(temp[0]) + scoreNn/len(temp[1]))/2
@@ -126,8 +137,8 @@ def getScoreNP(tmpNP):		#tmpNP = [(<[ADJ] [NN]>) , ...]
         else:
             totalScore += 0
 
-    if len(tmpNP) != 0:
-        return totalScore/len(tmpNP)
+    if len(tmpNP) != 0 and len(tmpNP)!= normcount:
+        return totalScore/(len(tmpNP)-normcount)
     else:
         return 0
 
