@@ -6,7 +6,7 @@ from nltk.chunk import RegexpParser
 from sentiwordnet import SentiWordNetCorpusReader, SentiSynset
 import re, string
 
-#constants used for passing values in evaluation
+#constants used in function parameters
 NP = 0
 VP = 1
 NN = 2
@@ -18,7 +18,7 @@ CLS = 7
 
 #gets a tree of NP and returns is as a tuple with <[ADJ] [NN]>
 # Sample tree : Tree('NP', [('It', 'PRP')])
-def addNounPhrase(tree):
+def getNP(tree):
     adj = []
     nn = []
 
@@ -31,7 +31,7 @@ def addNounPhrase(tree):
                 nn.append(t[0])
             elif t[1] == "NNS" or t[1]=="NNPS":
                 nn.append(t[0])
-            elif t[1]=="PRP" or t[1] == "PRP$":
+            elif t[1]=="PRP" or t[1] == "PRPS":
                 nn.append(t[0])
         except:
             continue
@@ -40,7 +40,7 @@ def addNounPhrase(tree):
 
 #gets a tree of NP and returns is as a tuple with <[ADV] [VB]>
 # Sample tree : Tree('V', [('was', 'VBD')])
-def addVerbPhrase(tree):
+def getVP(tree):
     adv = []
     vb = []
 
@@ -55,20 +55,20 @@ def addVerbPhrase(tree):
     return (adv , vb)
 
 
-def addPredicate(tree):
-    tmp = (addNounPhrase(tree[0]), addVerbPhrase(tree[1]))
+def getPred(tree):
+    tmp = (getNP(tree[0]), getVP(tree[1]))
     return tmp
 
-def addClause1(tree):
-    tmp = (addNounPhrase(tree[0]), addPredicate(tree[1]))
+def getClause1(tree):
+    tmp = (getNP(tree[0]), getPred(tree[1]))
     return tmp
 
-def addClause2(tree):
-    tmp = (addNounPhrase(tree[1]), addPredicate(tree[0]))
+def getClause2(tree):
+    tmp = (getNP(tree[1]), getPred(tree[0]))
     return tmp
 
 #find the score to be given to each word
-def findScoreWord(word, dType):
+def getWordScore(word, dType):
       #using the sentiwordnet file to get the score for each word
     swn_filename = 'SentiWordNet_3.0.0_20130122.txt'
     swn = SentiWordNetCorpusReader(swn_filename)
@@ -77,8 +77,9 @@ def findScoreWord(word, dType):
     wS = 0
     
     for w in word.split():
+		#gets the synsets of each word
         if dType == NN:
-            test = swn.senti_synsets(w, 'n') #gets the synsets of each word
+            test = swn.senti_synsets(w, 'n') 
         elif dType == ADJ:
             test = swn.senti_synsets(w, 'a')
         elif dType == VB:
@@ -89,48 +90,49 @@ def findScoreWord(word, dType):
             wS += test[0].pos_score - test[0].neg_score #gets the summation of all scores
         except:
             continue
-	
+        print w,"\n Positive Score : ",test[0].pos_score,"\n Negative Score : ",test[0].neg_score
+
     if len(word.split()) == 0:
         return 0
     return wS/len(word.split()) #returns average score for in a sentence
 
 
 
-def findScoreSO(tmpNP):		#tmpNP = [(<[ADJ] [NN]>) , ...]
+def getScoreNP(tmpNP):		#tmpNP = [(<[ADJ] [NN]>) , ...]
     scoreAdj = 0
     scoreNn = 0
     totalScore = 0	
 
     for temp in tmpNP:
-	
+
         scoreAdj = 0
         scoreNn = 0
-	
+
         for t1 in temp[0]:
-            scoreAdj +=  findScoreWord(t1, ADJ)
-	
+            scoreAdj +=  getWordScore(t1, ADJ)
+
         for t1 in temp[1]:
-            scoreNn +=  findScoreWord(t1, NN)
-	
+            scoreNn +=  getWordScore(t1, NN)
+
         if len(temp[0]) != 0 and len(temp[1]) != 0:
             totalScore += (scoreAdj/len(temp[0]) + scoreNn/len(temp[1]))/2
             
         elif len(temp[0]) == 0 and len(temp[1]) != 0:
             totalScore += (scoreNn/len(temp[1]))
-	
+
         elif len(temp[0]) != 0 and len(temp[1]) == 0:
             totalScore += (scoreAdj/len(temp[0]))
-	
+
         else:
             totalScore += 0
-	
+
     if len(tmpNP) != 0:
         return totalScore/len(tmpNP)
     else:
         return 0
 
 
-def findScoreVP(tmpVP):
+def getScoreVP(tmpVP):
     scoreAdv = 0
     scoreVb = 0
     totalScore = 0
@@ -139,47 +141,47 @@ def findScoreVP(tmpVP):
         scoreAdv = 0
         scoreVb = 0
         for t1 in temp[0]:
-            scoreAdv +=  findScoreWord(t1, ADV)
+            scoreAdv +=  getWordScore(t1, ADV)
         for t1 in temp[1]:
-            scoreVb +=  findScoreWord(t1, VB)
-	
+            scoreVb +=  getWordScore(t1, VB)
+
         if len(temp[0]) != 0 and len(temp[1]) != 0:
             totalScore += (scoreAdv/len(temp[0]) + scoreVb/len(temp[1]))/2
-	
+
         elif len(temp[0]) == 0 and len(temp[1]) != 0:
             totalScore += (scoreVb/len(temp[1]))
-	
+
         elif len(temp[0]) != 0 and len(temp[1]) == 0:
             totalScore += (scoreAdv/len(temp[0]))
         else:
             totalScore += 0
-	    
+
     if len(tmpVP) != 0:
         return totalScore/len(tmpVP)
     else:
         return 0
 
-def findScorePredicate(tmpPrd):
+def getScorePred(tmpPrd):
     totalScore = 0
     tmpNP = []
     tmpVP = []
     for temp in tmpPrd:
         tmpNP.append(temp[0])
         tmpVP.append(temp[1])
-        totalScore += (findScoreSO(tmpNP) + findScoreVP(tmpVP))/2
+        totalScore += (getScoreNP(tmpNP) + getScoreVP(tmpVP))/2
     if len(tmpPrd) != 0:
         return totalScore/len(tmpPrd)
     else:
         return 0
 
-def findScoreClause(tmpCls):
+def getScoreClause(tmpCls):
     totalScore = 0
     tmpNP = []
     tmpPrd = []
     for temp in tmpCls:
         tmpNP.append(temp[0])
         tmpPrd.append(temp[1])
-        totalScore += (findScoreSO(tmpNP) + findScoreVP(tmpPrd))/2
+        totalScore += (getScoreNP(tmpNP) + getScoreVP(tmpPrd))/2
     if len(tmpCls) != 0:
         return totalScore/len(tmpPrd)
     else:
@@ -237,9 +239,9 @@ print "Processing input..."
 print "Number of sentences to process: ", len(arr_pos)
 
 for q in ["", vp + prd + cls1 + cls2]:
-   print "----\n"
-   print q
+   print "___\n"
    grammer += q  #update grammer
+   print grammer
    npc = RegexpParser(grammer) #assign npc with RegexpParser for the given grammar
    sentCount=0
    print "\n"
@@ -257,36 +259,36 @@ for q in ["", vp + prd + cls1 + cls2]:
         for x in t:
             try:
                 if x.node == "VP":
-                    x1 = addVerbPhrase(x) #gets the tuple [ADJ NN]
+                    x1 = getVP(x) #gets the tuple <[ADV] [VB]>
                     tmpVP.append(x1)
-	       
+
                 if x.node == "NP":
-                    x1 = addNounPhrase(x)
+                    x1 = getNP(x) #gets the tuple <[ADJ] [NN]>
                     tmpNP.append(x1)
-	       
+
                 elif x.node == "PRD":
-                    x1 = addPredicate(x)
+                    x1 = getPred(x) #gets <[ADJ] [NN] [ADV] [VB]>
                     tmpPrd.append(x1)
-	      
+
                 elif x.node == "CLS1":
-                    x1 = addClause1(x)
+                    x1 = getClause1(x)
                     tmpCls.append(x1)
 
                 elif x.node == "CLS2":
-                    x1 = addClause2(x)
+                    x1 = getClause2(x)
                     tmpCls.append(x1)
             except:
                 continue
     
         totalS.append(1) #set 1 as the initial value in the stack
    
-        tNp = findScoreSO(tmpNP) #finding score of each word
-        tVp = findScoreVP(tmpVP)
-        tPrd = findScorePredicate(tmpPrd)
-        tCls = findScoreClause(tmpCls)
-
+        tNp = getScoreNP(tmpNP) #finding score of each word
+        tVp = getScoreVP(tmpVP)
+        tPrd = getScorePred(tmpPrd)
+        tCls = getScoreClause(tmpCls)
+	#multiply the old element in the list with the new element
         if tNp != 0:
-            totalS.append(totalS.pop() * tNp) #multiply the new element with the old element in the list
+            totalS.append(totalS.pop() * tNp) 
    
         if tVp != 0:
             totalS.append(totalS.pop() * tVp)
@@ -297,8 +299,13 @@ for q in ["", vp + prd + cls1 + cls2]:
         if tCls != 0:
             totalS.append(totalS.pop() * tCls)
 
+netscore = 0;
+
 print "\nSCORES\n____________"
 for j in range(0,len(totalS),sentCount):
    for i in range(0,sentCount):
+      netscore += totalS[j+i]
       print totalS[j+i]
    print "_____________"
+
+print "\n\nNET SCORE : ",netscore/len(totalS)
