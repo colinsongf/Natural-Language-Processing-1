@@ -291,8 +291,7 @@ for q in ["", vp + prd + cls1 + cls2]:
                 continue
     
         totalS.append(1) #set 1 as the initial value in the stack
-        flag = 0 #flag for negative scores, if there are two negative scores net score have to be negative itself
-   
+        
         tNp = getScoreNP(tmpNP) #finding score of each word
         tVp = getScoreVP(tmpVP)
         tPrd = getScorePred(tmpPrd)
@@ -300,27 +299,23 @@ for q in ["", vp + prd + cls1 + cls2]:
 	#multiply the old element in the list with the new element
         if tNp != 0:
             totalS.append(totalS.pop() * abs(tNp))
-            if tNp < 0 and flag==0:
+            if tNp < 0:
                 totalS.append(0-totalS.pop())
-                flag=1
    
         if tVp != 0:
             totalS.append(totalS.pop() * abs(tVp))
-            if tVp < 0 and flag==0:
+            if tVp < 0:
                 totalS.append(0-totalS.pop())
-                flag=1
    
         if tPrd != 0:
             totalS.append(totalS.pop() * abs(tPrd))
-            if tPrd < 0 and flag==0:
+            if tPrd < 0:
                 totalS.append(0-totalS.pop())
-                flag=1
    
         if tCls != 0:
             totalS.append(totalS.pop() * abs(tCls))
-            if tCls < 0 and flag==0:
+            if tCls < 0:
                 totalS.append(0-totalS.pop())
-                flag=1
 
 netscore = 0;
 
